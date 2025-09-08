@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Raspberry Pi Robot Dashboard</title>
+  <style>
+    :root {
+      --bg1: #eef2f7; --bg2: #dfe7f1; --card: #ffffff; --text: #2c3e50; --muted: #6b7b8c;
+      --primary: #3498db; --primary-600: #2d82bc; --accent: #00c2a8; --danger: #e74c3c;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, 'Helvetica Neue', Arial;
+           background: linear-gradient(135deg, var(--bg1), var(--bg2)); color: var(--text); }
+    header { padding: 16px 20px; text-align: center; }
+    h1 { margin: 0; font-size: 24px; }
+
+    .container { width: 100%; max-width: 1200px; margin: 0 auto; padding: 12px; }
+    .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+    .card { background: var(--card); border-radius: 16px; padding: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+    .card h2 { margin: 0 0 10px; font-size: 18px; color: var(--text); }
+
+    .video { display: flex; justify-content: center; align-items: center; }
+    .video img { width: 100%; height: auto; border-radius: 12px; }
+
+    .controls-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    button { padding: 12px; font-size: 18px; border: none; border-radius: 12px; cursor: pointer; color: #fff; background: var(--primary); transition: .15s; }
+    button:hover { background: var(--primary-600); }
+    .stop { background: var(--danger); }
+
+    .slider-wrap { display: flex; align-items: center; gap: 12px; }
+    input[type="range"] { width: 100%; }
+    .telemetry { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; color: var(--muted); }
+    .telemetry .big { font-size: 18px; color: var(--text); }
+
+    .map img { width: 100%; border-radius: 12px; }
+
+    /* Мобильная вёрстка */
+    @media (max-width: 800px) {
+      .grid { grid-template-columns: 1fr; }
+      .desktop-controls { display: none; }
+      .mobile { display: block; }
+    }
+    .mobile { display: none; }
+
+    /* Джойстик */
+    .joystick { width: 220px; height: 220px; margin: 0 auto; border-radius: 50%; position: relative; background: rgba(52,152,219,0.15); border: 2px solid var(--primary); touch-action: none; }
+    .stick { width: 90px; height: 90px; border-radius: 50%; background: var(--primary); position: absolute; top: 65px; left: 65px; box-shadow: 0 10px 25px rgba(0,0,0,.2); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Управление роботом</h1>
+  </header>
+
+  <div class="container">
+    <div class="grid">
+      <!-- Левая колонка: видео -->
+      <div class="card video">
+        <img src="{{ url_for('video_feed') }}" alt="Video" />
+      </div>
+
+      <!-- Правая колонка: карта + телеметрия -->
+      <div class="card desktop-controls">
+        <h2>Карта (ArUco SLAM‑lite)</h2>
+        <div class="map"><img id="mapImg" src="/map.png" alt="map" /></div>
+        <h2 style="margin-top:12px;">Телеметрия</h2>
+        <div class="telemetry">
+          <div>Wi‑Fi RSSI</div><div class="big" id="tWifi">—</div>
+          <div>CPU, °C</div><div class="big" id="tCpu">—</div>
+          <div>Аптайм</div><div class="big" id="tUptime">—</div>
+          <div>Доп. скорость</div><div class="big"><span id="speedValue">0</span>%</div>
+        </div>
+	<div id="battery-container" style="position: fixed; top: 20px; right: 20px; width: 120px; background: #eee; padding: 10px; border-radius: 8px; text-align: center; box-shadow: 0 0 10px rgba(0,0,0,0.2);">
+    		<strong>Battery</strong>
+    		<div id="battery-bar" style="width: 100%; height: 20px; background: #ccc; border-radius: 5px; margin-top: 5px; overflow: hidden;">
+        	<div id="battery-fill" style="height: 100%; width: 100%; background: #4CAF50;"></div>
+    		</div>
+    		<span id="battery-value">100%</span>
+	</div>
+      </div>
+    </div>
+
+    <!-- Управление: ПК -->
+    <div class="card desktop-controls" style="margin-top:16px;">
+      <h2>Пульт управления</h2>
+      <div class="controls-grid">
+        <div></div>
+        <button onclick="send('forward')">⬆️ Вперёд</button>
+        <div></div>
+        <button onclick="send('left')">⬅️ Влево</button>
+        <button class="stop" onclick="send('stop')">⏹ Стоп</button>
+        <button onclick="send('right')">Вправо ➡️</button>
+        <div></div>
+        <button onclick="send('backward')">⬇️ Назад</button>
+        <div></div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div class="slider-wrap">
+          <label>Доп. скорость (0–30%)</label>
+          <input id="speedSlider" type="range" min="0" max="30" value="0" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Управление: Мобильный джойстик -->
+    <div class="card mobile" style="margin-top:16px;">
+      <h2>Джойстик</h2>
+      <div class="joystick" id="joystick">
+        <div class="stick" id="stick"></div>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="slider-wrap">
+          <label>Доп. скорость (0–30%)</label>
+          <input id="mSpeed" type="range" min="0" max="30" value="0" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+
+function updateBattery() {
+    fetch('/battery')
+        .then(resp => resp.json())
+        .then(data => {
+            const lvl = data.level;
+            document.getElementById('battery-fill').style.width = lvl + '%';
+            document.getElementById('battery-value').textContent = lvl + '%';
+            
+            // Меняем цвет при низком уровне
+            if(lvl < 20) {
+                document.getElementById('battery-fill').style.background = 'red';
+            } else if(lvl < 50) {
+                document.getElementById('battery-fill').style.background = 'orange';
+            } else {
+                document.getElementById('battery-fill').style.background = '#4CAF50';
+            }
+        });
+}
+
+// Обновляем каждые 2 секунды
+setInterval(updateBattery, 2000);
+updateBattery();
+    // ===== AJAX helpers =====
+    function send(cmd){ fetch('/'+cmd).then(r=>r.json()).then(j=>console.log(cmd,j)); }
+    function setSpeedRaw(val){
+      document.getElementById('speedValue').textContent = val;
+      const normalized = val/100; // 0.0–0.3
+      fetch(`/set_speed?value=${normalized}`).catch(()=>{});
+    }
+
+    // ===== Клавиатура (ПК) =====
+    document.addEventListener('keydown', (e)=>{
+      switch(e.key){
+        case 'ArrowUp': send('forward'); break;
+        case 'ArrowDown': send('backward'); break;
+        case 'ArrowLeft': send('left'); break;
+        case 'ArrowRight': send('right'); break;
+        case ' ': send('stop'); break;
+      }
+    });
+
+    // ===== Слайдеры скорости =====
+    const dSlider = document.getElementById('speedSlider');
+    if(dSlider){ dSlider.addEventListener('input', e=> setSpeedRaw(parseInt(e.target.value))); }
+    const mSlider = document.getElementById('mSpeed');
+    if(mSlider){ mSlider.addEventListener('input', e=> setSpeedRaw(parseInt(e.target.value))); }
+
+    // ===== Автообновление карты и телеметрии =====
+    function refreshMap(){
+      const img = document.getElementById('mapImg');
+      if(!img) return;
+      img.src = '/map.png?ts=' + Date.now();
+    }
+
+    function fmtUptime(sec){
+      const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+      return `${h}ч ${m}м ${s}с`;
+    }
+
+    function refreshTelemetry(){
+      fetch('/telemetry').then(r=>r.json()).then(t=>{
+        document.getElementById('tWifi').textContent = (t.wifi_dbm!==null && t.wifi_dbm!==undefined) ? `${t.wifi_dbm} dBm` : '—';
+        document.getElementById('tCpu').textContent = t.cpu_temp_c ?? '—';
+        document.getElementById('tUptime').textContent = fmtUptime(t.uptime_s || 0);
+      }).catch(()=>{});
+    }
+
+    setInterval(refreshMap, 1000);
+    setInterval(refreshTelemetry, 1000);
+
+    // ===== Детектируем мобильный и переключаем UI =====
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if(isMobile){
+      document.querySelector('.desktop-controls').style.display = 'none';
+      document.querySelector('.mobile').style.display = 'block';
+    }
+
+    // ===== Простой виртуальный джойстик =====
+    const joy = document.getElementById('joystick');
+    const stick = document.getElementById('stick');
+
+    function clamp(val, min, max){ return Math.max(min, Math.min(max, val)); }
+
+    function handleMove(clientX, clientY){
+      const rect = joy.getBoundingClientRect();
+      const cx = rect.left + rect.width/2;
+      const cy = rect.top + rect.height/2;
+      const dx = clientX - cx;
+      const dy = clientY - cy;
+      const r = 80; // радиус ограничителя
+      const dist = Math.min(Math.hypot(dx,dy), r);
+      const ang = Math.atan2(dy, dx);
+      const x = Math.cos(ang)*dist;
+      const y = Math.sin(ang)*dist;
+      stick.style.left = (rect.width/2 - 45 + x) + 'px';
+      stick.style.top  = (rect.height/2 - 45 + y) + 'px';
+
+      // Решение направления
+      if(Math.abs(x) > Math.abs(y)){
+        if(x > 20) send('right'); else if(x < -20) send('left');
+      } else {
+        if(y > 20) send('backward'); else if(y < -20) send('forward');
+      }
+    }
+
+    if(joy){
+      joy.addEventListener('touchstart', e=>{ if(e.touches[0]) handleMove(e.touches[0].clientX, e.touches[0].clientY); }, {passive:true});
+      joy.addEventListener('touchmove',  e=>{ if(e.touches[0]) handleMove(e.touches[0].clientX, e.touches[0].clientY); }, {passive:true});
+      joy.addEventListener('touchend',   ()=>{ stick.style.left = '65px'; stick.style.top = '65px'; send('stop'); });
+    }
+  </script>
+</body>
+</html>

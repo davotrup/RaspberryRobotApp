@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Распознавание лиц - Raspberry Pi</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+            text-align: center;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .video-container {
+            margin: 20px 0;
+        }
+        
+        #videoFeed {
+            width: 100%;
+            max-width: 640px;
+            border: 3px solid #ddd;
+            border-radius: 5px;
+            background-color: #000;
+        }
+        
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #e8f5e8;
+            border: 1px solid #4caf50;
+            border-radius: 5px;
+            color: #2e7d32;
+        }
+        
+        .error {
+            background-color: #ffebee;
+            border-color: #f44336;
+            color: #c62828;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Система распознавания лиц</h1>
+        <p>Камера Raspberry Pi с распознаванием лиц в реальном времени</p>
+        
+        <div class="video-container">
+            <img id="videoFeed" src="{{ url_for('video_feed') }}" alt="Видеопоток">
+        </div>
+        
+        <div id="status" class="status">
+            ✓ Видеопоток активен
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <p><strong>Распознанные лица:</strong> Даниил, Александра</p>
+            <p><small>Система работает на Raspberry Pi 4</small></p>
+        </div>
+    </div>
+
+    <script>
+        // Функция для проверки статуса видеопотока
+        function checkVideoStatus() {
+            const video = document.getElementById('videoFeed');
+            const status = document.getElementById('status');
+            
+            video.onload = function() {
+                status.textContent = '✓ Видеопоток активен';
+                status.className = 'status';
+            };
+            
+            video.onerror = function() {
+                status.textContent = '✗ Ошибка видеопотока. Перезагрузите страницу.';
+                status.className = 'status error';
+            };
+        }
+        
+        // Проверяем статус при загрузке страницы
+        window.onload = function() {
+            checkVideoStatus();
+            
+            // Периодически проверяем статус каждые 5 секунд
+            setInterval(checkVideoStatus, 5000);
+        };
+    </script>
+</body>
+</html>

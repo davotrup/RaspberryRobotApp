@@ -1,0 +1,9 @@
+old/
+
+debug_server.py
+faces/*
+haarcascade_frontalface_default.xml
+known_faces.pkl
+.lgd-nfy0
+trained_faces.yml
+zerotier*

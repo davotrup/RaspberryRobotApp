@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Простой видеопоток</title>
+</head>
+<body>
+    <h1>Простой видеопоток</h1>
+    <p>Если это работает, значит проблема в сложном HTML коде</p>
+    <img src="{{ url_for('video_feed') }}" width="640" height="480">
+    
+    <script>
+        // Простое обновление изображения
+        setInterval(function() {
+            const img = document.querySelector('img');
+            img.src = "{{ url_for('video_feed') }}?t=" + new Date().getTime();
+        }, 100);
+    </script>
+</body>
+</html>
