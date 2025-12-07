@@ -1,9 +1,14 @@
 old/
 
-debug_server.py
+debug_server.py*
 faces/*
 haarcascade_frontalface_default.xml
 known_faces.pkl
 .lgd-nfy0
 trained_faces.yml
 zerotier*
+cron_execution.log
+current_app_url.txt
+setup_cron.sh
+ssh_streaming.sh
+
